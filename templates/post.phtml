@@ -1,0 +1,199 @@
+<?php
+session_start();
+
+$flash_message = $_SESSION['flash_message'] ?? '';
+$flash_message_type = $_SESSION['flash_message_type'] ?? '';
+
+// удаление сообщения из сессии после получения
+unset($_SESSION['flash_message']);
+unset($_SESSION['flash_message_type']);
+
+// если флеш-сообщение есть — используем его, иначе - $message (если задано)
+$message = $flash_message ?: ($message ?? '');
+
+// также для типа сообщения
+$message_type = $flash_message_type ?: ($message_type ?? '');
+
+// если есть сообщение для отображения — выводится блок уведомления
+if (!empty($message)): ?>
+    <div class="message message-<?= htmlspecialchars($message_type) ?>"
+        role="alert" aria-live="assertive" aria-atomic="true">
+        <div class="message-body">
+            <!-- текст сообщения -->
+            <?= htmlspecialchars($message) ?? '' ?>
+        </div>
+        <!-- кнопка закрытия сообщения -->
+        <button type="button" class="close-message">&times;</button>
+    </div>
+<?php endif;
+
+// проверка, есть ли данные поста для отображения
+if (!is_null($data)): ?>
+<h2 class="greetings">Привет, <?= htmlspecialchars($login) ?>!</h2>
+    <!-- крточка поста -->
+    <div class="card-post">
+        <!-- заголовок поста -->
+        <p class="card-title"><?= htmlspecialchars($data['title']) ?? ''?></p><br>
+
+    <!-- категория -->
+    <?php if (!empty($categories)) : ?>
+        <?php foreach ($categories as $key => $category) : ?>
+            <?php if ($key === $data['category_id']) : ?>
+                <p class="card-category">
+                    <?= $category; ?>
+                </p>
+            <?php endif; ?>
+        <?php endforeach; ?>
+    <?php endif; ?>
+
+    <!-- текст поста (отображается только если не пустой) -->
+    <?php if (!empty($data['text'])): ?>
+        <p class="card-text" href="?page=post&id=<?= htmlspecialchars($data['id']); ?>">
+            <?= htmlspecialchars($data['text']) ?>
+        </p><br>
+    <?php endif ;?><br>
+
+    <!-- дата создания поста -->
+    <p class="card-date">Создан: <?= htmlspecialchars($data['created_at']) ?? ''; ?></p>
+
+    <!-- дата последнего редактирования (если есть) -->
+    <p class="card-date">
+        Отредактирован:
+            <?= isset($data['update_at']) && $data['update_at'] !== null
+        ? htmlspecialchars((string)$data['update_at'])
+        : 'не редактировался' ?>
+    </p>
+
+    <!-- изображения -->
+    <?php if (!empty($data['image'])): ?>
+        <div class="post-image">
+            <img
+                src="uploads/posts/<?= urlencode($data['image']) ?>"
+                alt="Иллюстрация к посту"
+                class="img-responsive"  >
+            </div>
+        <?php endif; ?>
+    </div>
+<?php else: ?>
+    <!-- если данных поста нет -->
+    Нет поста
+<?php endif; ?>
+
+<div class="edit-delete-likes-forms">
+    <!-- кнопка «Редактировать» -->
+    <form class="edit-form" action="<?= BASE_URL ?>" method="GET">
+        <input type="hidden" name="page" value="edit">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($data['id']) ?>">
+        <button type="submit" class="btn-edit">Редактировать</button>
+    </form>
+
+    <!-- кнопка «Удалить» с подтверждением -->
+    <form class="delete-form" action="<?= BASE_URL ?>" method="GET"
+        onsubmit="return confirm('Удалить пост?')">
+        <input type="hidden" name="page" value="delete">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($data['id']) ?>">
+        <button type="submit" class="btn-delete">Удалить</button>
+    </form>
+
+    <!-- кнопка лайков -->
+    <form class="likes-form" action="<?= BASE_URL ?>" method="GET">
+        <input type="hidden" name="page" value="likes">
+        <input type="hidden" name="id" value="<?= htmlspecialchars($data['id']) ?>">
+        <div class="like-container">
+            <img class="img-heart" src="images/heart.png" alt="Сердце">
+            <button class="heart-btn" type="submit">
+                <span class="span-likes">
+                    <?= htmlspecialchars(($_SESSION['post_likes'][$data['id']] ?? 0)) ?>
+                </span>
+            </button>
+        </div>
+    </form>
+
+    <!-- комментарии -->
+    <div class="comments">
+        <?php foreach($comments as $comment) :?>
+            <p class="comment"><?= htmlspecialchars( $comment['content'])?></p>
+            <p class="comment comment-author"><?= htmlspecialchars( $comment['author'])?></p>
+            <p class="comment comment-date"><?= htmlspecialchars( $comment['date'])?></p>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<script>
+'use strict';
+document.addEventListener('DOMContentLoaded', () => {
+    const heartBtn = document.querySelector('.heart-btn');
+    
+    if (!heartBtn) return;
+
+    const likesSpan = heartBtn.querySelector('.span-likes');
+    if (!likesSpan) {
+        console.error('Элемент .span-likes не найден!');
+        return;
+    }    
+        
+    heartBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+
+    const form = heartBtn.closest('form');
+    const postIdInput = form.querySelector('input[name="id"]');
+    
+    if (!postIdInput) {
+        console.error('Поле input[name="id"] не найдено!');
+        return;
+    }
+
+    const postId = postIdInput.value;
+    console.log('Отправляем лайк для поста:', postId); // Для отладки
+
+    fetch(`?page=likes&id=${postId}`, {
+        method: 'POST',
+        body: new FormData(form)
+    })
+    .then(response => {
+        if (!response.ok) throw new Error('Ошибка сети');
+        return response.json();
+    })
+    .then(data => {
+        likesSpan.textContent = data.likes;
+        console.log('Обновлено:', data.likes); // Для отладки
+    })
+    .catch(error => {
+        console.error('Ошибка:', error);
+    });
+});
+
+    // Блок сообщения (alert)
+    const message = document.querySelector('.message');
+
+    if (message) {
+        // Показываем сообщение с анимацией (плавное появление)
+        setTimeout(() => {
+            message.style.opacity = '1';
+            message.style.transform = 'translateY(0)';
+        }, 100);
+
+        // Автоматически скрываем сообщение через 4 секунды
+        setTimeout(() => {
+            message.style.opacity = '0';
+            message.style.transform = 'translateY(20px)';
+
+            // Удаляем элемент из DOM после завершения анимации (400 мс)
+            setTimeout(() => message.remove(), 400);
+        }, 4000);
+
+        // Обработчик клика по кнопке закрытия (×)
+        const closeBtn = message.querySelector('.close-message');
+        closeBtn.addEventListener('click', () => {
+            // Анимация закрытия
+            message.style.opacity = '0';
+            message.style.transform = 'translateY(20px)';
+            // Удаление элемента после анимации
+            setTimeout(() => message.remove(), 400);
+        });
+    }
+});
+</script>
+
+
+

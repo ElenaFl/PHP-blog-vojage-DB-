@@ -1,0 +1,15 @@
+<nav class="header-menu">
+    <div class="nav-links">
+    <?php if (!empty($links)) : ?>
+        <?php foreach ($links as $item):
+            $link = $item['link'];
+            $name = $item['name'];?>
+            <a class="header-link" href="<?= BASE_URL ?>?page=<?= htmlspecialchars($link) ?>">
+                <?= htmlspecialchars($name) ?>
+            </a>
+        <?php endforeach; ?>
+    <?php else:
+    echo "Отсутсвуют данные для вывода меню";
+    endif; ?>
+    </div>
+</nav>
